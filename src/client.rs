@@ -1,7 +1,6 @@
 use error::{Error, ErrorObject, RequestError};
 use futures::{Future, Stream};
 use hyper;
-//use hyper::client::RequestBuilder;
 use hyper::header::{Authorization, Basic, ContentType, Headers};
 use serde;
 use serde_json as json;
@@ -9,9 +8,17 @@ use serde_qs as qs;
 use std::str::FromStr;
 use tokio_core;
 
-
 #[cfg(feature = "with-rustls")]
 use hyper_rustls;
+
+#[cfg(feature = "with-rustls")]
+type Connector = hyper_rustls::HttpsConnector;
+
+#[cfg(feature = "with-openssl")]
+use hyper_openssl;
+
+#[cfg(feature = "with-openssl")]
+type Connector = hyper_openssl::HttpsConnector<hyper::client::HttpConnector>;
 
 #[derive(Clone, Default)]
 pub struct Params {
@@ -20,10 +27,7 @@ pub struct Params {
 
 #[derive(Clone)]
 pub struct Client {
-    #[cfg(feature = "with-rustls")]
-    client: hyper::client::Client<hyper_rustls::HttpsConnector>,
-    #[cfg(feature = "with-openssl")]
-    client: hyper::client::Client<C>,
+    client: hyper::client::Client<Connector>,
     secret_key: String,
     params: Params,
 }
@@ -39,12 +43,11 @@ impl Client {
         let core = tokio_core::reactor::Core::new().unwrap();
         let handle = core.handle();
         let https = hyper_rustls::HttpsConnector::new(4, &handle);
-
         let client = hyper::client::Client::configure()
             .connector(https)
             .build(&handle);
         Client {
-            client: client,
+            client,
             secret_key: secret_key.into(),
             params: Params::default(),
         }
@@ -52,13 +55,15 @@ impl Client {
 
     #[cfg(feature = "with-openssl")]
     pub fn new<Str: Into<String>>(secret_key: Str) -> Self {
-        use hyper_openssl::OpensslClient;
-
-        let tls = OpensslClient::new().unwrap();
-        let connector = HttpsConnector::new(tls);
-        let client = hyper::Client::with_connector(connector);
+        let core = tokio_core::reactor::Core::new().unwrap();
+        let handle = core.handle();
+        let https = hyper_openssl::HttpsConnector::new(4, &handle)
+            .unwrap();
+        let client = hyper::client::Client::configure()
+            .connector(https)
+            .build(&handle);
         Client {
-            client: client,
+            client,
             secret_key: secret_key.into(),
             params: Params::default(),
         }
