@@ -50,6 +50,7 @@
 //! ```
 
 extern crate chrono;
+extern crate futures;
 extern crate hmac;
 extern crate hyper;
 #[cfg(feature = "with-rustls")]
@@ -62,6 +63,7 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate serde_qs;
 extern crate sha2;
+extern crate tokio_core;
 
 mod client;
 mod error;
