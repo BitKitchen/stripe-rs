@@ -25,11 +25,11 @@ pub struct Params {
     pub stripe_account: Option<String>,
 }
 
-#[derive(Clone)]
 pub struct Client {
     client: hyper::client::Client<Connector>,
     secret_key: String,
     params: Params,
+    core: tokio_core::reactor::Core,
 }
 
 impl Client {
@@ -42,7 +42,7 @@ impl Client {
     pub fn new<Str: Into<String>>(secret_key: Str) -> Self {
         let core = tokio_core::reactor::Core::new().unwrap();
         let handle = core.handle();
-        let https = hyper_rustls::HttpsConnector::new(4, &handle);
+        let https = hyper_rustls::HttpsConnector::new(1, &handle);
         let client = hyper::client::Client::configure()
             .connector(https)
             .build(&handle);
@@ -50,6 +50,7 @@ impl Client {
             client,
             secret_key: secret_key.into(),
             params: Params::default(),
+            core,
         }
     }
 
@@ -66,6 +67,7 @@ impl Client {
             client,
             secret_key: secret_key.into(),
             params: Params::default(),
+            core,
         }
     }
 
@@ -74,7 +76,7 @@ impl Client {
     /// This is the recommended way to send requests for many different Stripe accounts
     /// or with different Meta, Extra, and Expand params while using the same secret key.
     pub fn with(&self, params: Params) -> Self {
-        let mut client = self.clone();
+        let mut client = Self::new(self.secret_key.to_owned());
         client.params = params;
         client
     }
